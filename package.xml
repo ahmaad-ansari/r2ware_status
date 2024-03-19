@@ -7,6 +7,10 @@
   <maintainer email="ahmaadansari@todo.todo">ahmaadansari</maintainer>
   <license>TODO: License declaration</license>
 
+  <build_depend>autoware_auto_vehicle_msgs</build_depend>
+
+  <exec_depend>autoware_auto_vehicle_msgs</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
