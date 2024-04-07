@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'r2ware_status_node = r2ware_status.r2ware_status_node:main'
+            'r2ware_status_node = r2ware_status.r2ware_status_node:main',
         ],
     },
 )

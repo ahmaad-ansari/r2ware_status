@@ -1,87 +1,113 @@
 import rclpy
 from rclpy.node import Node
+from autoware_auto_control_msgs.msg import AckermannControlCommand
 from autoware_auto_vehicle_msgs.msg import (
-    VelocityReport,
-    SteeringReport,
+    ControlModeCommand,
+    GearCommand,
+    HazardLightsCommand,
+    TurnIndicatorsCommand,
     ControlModeReport,
-    GearReport
+    GearReport,
+    HazardLightsReport,
+    SteeringReport,
+    TurnIndicatorsReport,
+    VelocityReport
 )
-from rosgraph_msgs.msg import Clock
-from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSReliabilityPolicy
 
-class StatusPublisher(Node):
+class StatusSubscriberPublisher(Node):
     def __init__(self):
-        super().__init__('r2ware_sensing_node')
+        super().__init__('r2ware_status_node')
 
-        # Subscriber for clock topic
-        self.clock_sub = self.create_subscription(Clock, '/clock', self.clock_callback, 10)
-        self.latest_clock_msg = None
-
-        # Define QoS profile
-        qos_profile = QoSProfile(
-                        reliability=QoSReliabilityPolicy.RELIABLE,
-                        history=QoSHistoryPolicy.KEEP_LAST,
-                        depth=1
-                    )
+        # Subscribers
+        self.control_cmd_sub = self.create_subscription(AckermannControlCommand, '/control/command/control_cmd', self.control_cmd_callback, 10)
+        self.control_mode_request_sub = self.create_subscription(ControlModeCommand, '/control/control_mode_request', self.control_mode_request_callback, 10)
+        self.gear_cmd_sub = self.create_subscription(GearCommand, '/control/command/gear_cmd', self.gear_cmd_callback, 10)
+        self.hazard_lights_cmd_sub = self.create_subscription(HazardLightsCommand, '/control/command/hazard_lights_cmd', self.hazard_lights_cmd_callback, 10)
+        self.turn_indicators_cmd_sub = self.create_subscription(TurnIndicatorsCommand, '/control/command/turn_indicators_cmd', self.turn_indicators_cmd_callback, 10 )
 
         # Publishers
-        self.velocity_publisher = self.create_publisher(VelocityReport, '/vehicle/status/velocity_status', qos_profile)
-        self.steering_publisher = self.create_publisher(SteeringReport, '/vehicle/status/steering_status', qos_profile)
-        self.control_mode_publisher = self.create_publisher(ControlModeReport, '/vehicle/status/control_mode', qos_profile)
-        self.gear_publisher = self.create_publisher(GearReport, '/vehicle/status/gear_status', qos_profile)
+        self.control_mode_publisher = self.create_publisher(ControlModeReport, '/vehicle/status/control_mode', 10)
+        self.gear_status_publisher = self.create_publisher(GearReport, '/vehicle/status/gear_status', 10)
+        self.hazard_lights_status_publisher = self.create_publisher(HazardLightsReport, '/vehicle/status/hazard_lights_status', 10)
+        self.steering_status_publisher = self.create_publisher(SteeringReport, '/vehicle/status/steering_status', 10)
+        self.turn_indicators_status_publisher = self.create_publisher(TurnIndicatorsReport, '/vehicle/status/turn_indicators_status', 10)
+        self.velocity_status_publisher = self.create_publisher(VelocityReport, '/vehicle/status/velocity_status', 10)
 
-    def clock_callback(self, msg):
-        self.latest_clock_msg = msg
-        self.publish_messages()
+    def control_cmd_callback(self, msg):
+        # Extract relevant data from msg
+        steering_angle = msg.lateral.steering_tire_angle
+        longitudinal_velocity = msg.longitudinal.speed
+        lateral_velocity = 0.0  # Since lateral velocity is not provided in the message
+        heading_rate = 0.0  # Heading rate is not provided in the message
 
-    def publish_messages(self):
-        if self.latest_clock_msg is not None:
-            current_time = self.latest_clock_msg.clock
-            self.publish_velocity_report(current_time)
-            self.publish_steering_report(current_time)
-            self.publish_control_mode_report(current_time)
-            self.publish_gear_report(current_time)
-
-    def publish_velocity_report(self, current_time):
-        velocity_msg = VelocityReport()
-        velocity_msg.header.stamp = current_time
-        velocity_msg.header.frame_id = "base_link"
-        velocity_msg.longitudinal_velocity = 0.0
-        velocity_msg.lateral_velocity = -0.0
-        velocity_msg.heading_rate = 3.195792669430375e-05
-        # Add logic to populate velocity_msg with data
-        self.velocity_publisher.publish(velocity_msg)
-
-    def publish_steering_report(self, current_time):
+        # Create SteeringReport message
         steering_msg = SteeringReport()
-        steering_msg.stamp = current_time
-        steering_msg.steering_tire_angle = -0.0
-        # Add logic to populate steering_msg with data
-        self.steering_publisher.publish(steering_msg)
+        steering_msg.steering_tire_angle = steering_angle
 
-    def publish_control_mode_report(self, current_time):
+        # Create VelocityReport message
+        velocity_msg = VelocityReport()
+        velocity_msg.header.frame_id = "base_link"
+        velocity_msg.longitudinal_velocity = longitudinal_velocity
+        velocity_msg.lateral_velocity = lateral_velocity
+        velocity_msg.heading_rate = heading_rate
+
+        # Publish messages
+        self.steering_status_publisher.publish(steering_msg)
+        self.velocity_status_publisher.publish(velocity_msg)
+
+    def control_mode_request_callback(self, msg):
+        # Extract relevant data from msg
+        mode = msg.mode  # The mode received in the message
+        print(msg)
+
+        # Create ControlModeReport message
         control_mode_msg = ControlModeReport()
-        control_mode_msg.stamp = current_time
-        control_mode_msg.mode = 1
-        # Add logic to populate control_mode_msg with data
+        control_mode_msg.mode = mode
+
+        # Publish message
         self.control_mode_publisher.publish(control_mode_msg)
 
-    def publish_gear_report(self, current_time):
-        gear_msg = GearReport()
-        gear_msg.stamp = current_time
-        gear_msg.report = 22
+    def gear_cmd_callback(self, msg):
+        # Extract relevant data from msg
+        command = msg.command  # Gear command received in the message
 
-        # Add logic to populate gear_msg with data
-        self.gear_publisher.publish(gear_msg)
+        # Create GearReport message
+        gear_report_msg = GearReport()
+        gear_report_msg.report = command
+
+        # Publish message
+        self.gear_status_publisher.publish(gear_report_msg)
+
+    def hazard_lights_cmd_callback(self, msg):
+        # Extract relevant data from msg
+        command = msg.command  # Hazard lights command received in the message
+
+        # Create HazardLightsReport message
+        hazard_lights_report_msg = HazardLightsReport()
+        hazard_lights_report_msg.report = command
+
+        # Publish message
+        self.hazard_lights_status_publisher.publish(hazard_lights_report_msg)
+
+    def turn_indicators_cmd_callback(self, msg):
+        # Extract relevant data from msg
+        command = msg.command  # Turn indicators command received in the message
+
+        # Create TurnIndicatorsReport message
+        turn_indicators_report_msg = TurnIndicatorsReport()
+        turn_indicators_report_msg.report = command
+
+        # Publish message
+        self.turn_indicators_status_publisher.publish(turn_indicators_report_msg)
 
 def main(args=None):
     rclpy.init(args=args)
 
-    status_publisher = StatusPublisher()
+    status_subscriber_publisher = StatusSubscriberPublisher()
 
-    rclpy.spin(status_publisher)
+    rclpy.spin(status_subscriber_publisher)
 
-    status_publisher.destroy_node()
+    status_subscriber_publisher.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
